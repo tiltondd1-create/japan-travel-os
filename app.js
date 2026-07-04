@@ -1,8 +1,8 @@
-const APP_VERSION = 'v11.0.0';
+const APP_VERSION = 'v11.1.0';
 
 const CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbzJW46i_k24_DZ0G7mjrUVYXzuh7UHl5faRMN_0X5UHof_dwQn4r1hO-fjUZa40NCLUXQ/exec',
-  CACHE_KEY: 'travel-os-v11-data',
+  API_URL: './api',
+  CACHE_KEY: 'travel-os-v111-data',
   STALE_MS: 1000 * 60 * 10
 };
 
@@ -35,36 +35,23 @@ let state = {
 };
 
 const app = document.getElementById('app');
-
 const esc = v => String(v ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 const attr = v => esc(v).replace(/`/g,'&#96;');
 
-function jsonp(url) {
-  return new Promise((resolve, reject) => {
-    const cb = 'travelOS_' + Math.random().toString(36).slice(2);
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => cleanup(new Error('Network timeout')), 15000);
-    function cleanup(err) {
-      clearTimeout(timeout);
-      delete window[cb];
-      script.remove();
-      if (err) reject(err);
-    }
-    window[cb] = data => { cleanup(); resolve(data); };
-    script.onerror = () => cleanup(new Error('Could not reach Google Sheets API'));
-    script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb + '&_=' + Date.now();
-    document.body.appendChild(script);
-  });
-}
-
-function api(action, params='') {
-  if (!CONFIG.API_URL || !CONFIG.API_URL.trim()) return Promise.reject(new Error('Missing API URL'));
-  return jsonp(`${CONFIG.API_URL}?action=${encodeURIComponent(action)}${params}`);
+async function api(action, params='') {
+  const url = `${CONFIG.API_URL}?action=${encodeURIComponent(action)}${params}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'API returned ok:false');
+  return data;
 }
 
 function saveCache() {
-  const payload = { time: Date.now(), state: { core: state.core, weather: state.weather, sections: state.sections } };
-  localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(payload));
+  localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify({
+    time: Date.now(),
+    state: { core: state.core, weather: state.weather, sections: state.sections }
+  }));
 }
 
 function loadCache() {
@@ -97,11 +84,6 @@ async function init() {
   const cacheTime = loadCache();
   if (state.core) render();
 
-  if (!CONFIG.API_URL || !CONFIG.API_URL.trim()) {
-    app.innerHTML = `<div class="app"><div class="card red"><h2>Setup needed</h2><p>Open app.js and paste your Apps Script web app URL into CONFIG.API_URL.</p><p class="debug">Version: ${APP_VERSION}\nAPI URL set: no</p></div></div>`;
-    return;
-  }
-
   const stale = !cacheTime || Date.now() - cacheTime > CONFIG.STALE_MS;
   if (!state.core || stale) await syncCore();
   else {
@@ -116,7 +98,6 @@ async function syncCore(background=false) {
     state.syncStatus = background ? 'Updating' : 'Syncing';
     if (!background && !state.core) app.innerHTML = boot('Syncing Travel OS…');
     const core = await api('core');
-    if (!core.ok) throw new Error(core.error || 'Google Sheets API error');
     state.core = core;
     state.offline = false;
     state.syncStatus = 'Synced';
@@ -127,14 +108,13 @@ async function syncCore(background=false) {
   } catch(e) {
     state.syncStatus = 'Offline';
     if (state.core) { state.offline = true; render(); }
-    else app.innerHTML = `<div class="app"><div class="card red"><h2>Could not load app</h2><p>${esc(e.message)}</p><p class="debug">Version: ${APP_VERSION}\nAPI URL set: ${CONFIG.API_URL ? 'yes' : 'no'}\nTry: ?reset=1</p></div></div>`;
+    else app.innerHTML = `<div class="app"><div class="card red"><h2>Could not load app</h2><p>${esc(e.message)}</p><p class="debug">Version: ${APP_VERSION}\nProxy URL: ${CONFIG.API_URL}\nTry: ?reset=1\nTest: /api?action=core</p></div></div>`;
   }
 }
 
 async function refreshWeather() {
   try {
-    const w = await api('weather');
-    state.weather = w;
+    state.weather = await api('weather');
     saveCache();
     render();
   } catch(e) {}
@@ -144,26 +124,17 @@ async function loadSection(name) {
   if (state.sections[name]) return state.sections[name];
   try {
     const payload = await api('section', '&section=' + encodeURIComponent(name));
-    if (payload.ok) {
-      state.sections[name] = payload.rows || [];
-      saveCache();
-      render();
-      return state.sections[name];
-    }
+    state.sections[name] = payload.rows || [];
+    saveCache();
+    render();
+    return state.sections[name];
   } catch(e) { state.offline = true; }
   return [];
 }
 
 function ensureSections(names) { names.forEach(n => { if (!state.sections[n]) loadSection(n); }); }
 function prefetchCritical() { CRITICAL_SECTIONS.forEach(loadSection); }
-
-function setView(view) {
-  state.view = view;
-  ensureSections(VIEW_SECTIONS[view] || []);
-  render();
-  scrollTo({top:0, behavior:'smooth'});
-}
-
+function setView(view) { state.view = view; ensureSections(VIEW_SECTIONS[view] || []); render(); scrollTo({top:0, behavior:'smooth'}); }
 function today() { return state.core?.today || {}; }
 function dateRows() { return (state.core?.itinerary || []).filter(r => r.Date); }
 function setDate(date) {
@@ -183,29 +154,19 @@ function shiftDate(delta) {
   setDate(rows[next].Date);
 }
 
-function boot(msg) {
-  return `<div class="boot"><div class="boot-card"><div class="boot-logo">🇯🇵</div><h1>Japan 2026</h1><p>${esc(msg)}</p></div></div>`;
-}
-
+function boot(msg) { return `<div class="boot"><div class="boot-card"><div class="boot-logo">🇯🇵</div><h1>Japan 2026</h1><p>${esc(msg)}</p></div></div>`; }
 function shell(content, cls='') {
   return `<div class="app ${cls}">
-    <div class="top">
-      <div class="brand"><div class="brandIcon">🇯🇵</div><div><b>Japan 2026</b><small>David • Noelle • Nick • Hilda</small></div></div>
-      <div class="status">${state.syncStatus}</div>
-    </div>
+    <div class="top"><div class="brand"><div class="brandIcon">🇯🇵</div><div><b>Japan 2026</b><small>David • Noelle • Nick • Hilda</small></div></div><div class="status">${state.syncStatus}</div></div>
     ${state.offline ? '<div class="offline">Offline/cache mode — showing saved trip data.</div>' : ''}
     ${content}
   </div>${nav()}`;
 }
-
 function nav() {
   const tabs = [['home','🏠','Home'],['today','📱','Today'],['hilda','👩','Hilda'],['nick','👦','Nick'],['dn','👨‍👩‍👦','D+N'],['sos','🚨','SOS']];
   return `<div class="nav">${tabs.map(([v,i,l]) => `<button class="${state.view===v?'active':''}" onclick="setView('${v}')">${i}<br>${l}</button>`).join('')}</div>`;
 }
-
-function controls() {
-  return `<div class="controls"><button onclick="shiftDate(-1)">←</button><input type="date" value="${esc(state.core?.selectedDate || '')}" onchange="setDate(this.value)"><button onclick="shiftDate(1)">→</button></div>`;
-}
+function controls() { return `<div class="controls"><button onclick="shiftDate(-1)">←</button><input type="date" value="${esc(state.core?.selectedDate || '')}" onchange="setDate(this.value)"><button onclick="shiftDate(1)">→</button></div>`; }
 function hero() { return `<div class="card hero"><h1>🇯🇵 JAPAN<br>2026</h1><p>Family Travel OS</p></div>`; }
 function metrics(t) { return `<div class="metrics"><div class="metric">⚡ ${esc(t.Energy||'')}</div><div class="metric">👥 ${esc(t.Crowd||'')}</div><div class="metric">👟 ${esc(t.Walking||'')}</div></div>`; }
 function weatherCard() {
@@ -226,22 +187,10 @@ function renderHome() {
     <div class="section">Quick access</div><div class="grid">
     ${tile('👩','Hilda','Relax mode','hilda')}${tile('👦','Nick','Simple plan','nick')}${tile('👨‍👩‍👦','D+N','Planning','dn')}${tile('🆘','Lost','If separated','lost')}${tile('🇯🇵','Phrases','Searchable','phrases')}${tile('🍽','Food','Restaurants','food')}${tile('🚉','Transit','Travel cards','transit')}${tile('☔','Rain','Backups','rain')}${tile('📍','Maps','Places','maps')}${tile('🎓','First Time','Japan basics','academy')}${tile('🧰','Useful','Konbini + bathroom','useful')}${tile('⏳','Timeline','Countdowns','timeline')}</div>`);
 }
-
-function renderToday() {
-  const t=today();
-  app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card dark"><h2>📱 Today</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div>${metrics(t)}</div>${dayCards()}<div class="card red"><b>Bring:</b><br>${esc(t['Bring / Hilda Reminder']||'')}</div>`);
-}
-function renderHilda() {
-  const t=today();
-  app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card lav"><h2>👩 Hilda</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div></div><div class="card"><b>Hotel</b><br>${esc(t.Hotel||'')}</div>${dayCards()}<div class="card red"><b>Bring</b><br>${esc(t['Bring / Hilda Reminder']||'')}</div><div class="card dark"><b>Emergency</b><br>Police: 110<br>Ambulance / Fire: 119<br><br>If separated: go to hotel lobby or ask station staff.</div>`, 'hilda');
-}
-function renderNick() {
-  const t=today();
-  app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card blue"><h2>👦 Nick</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div></div>${dayCards()}<div class="card"><b>Hotel:</b> ${esc(t.Hotel||'')}</div><div class="grid">${tile('🍽','Food','Restaurants','food')}${tile('🛍','Shopping','Wishlist','shopping')}${tile('🇯🇵','Phrases','Useful Japanese','phrases')}${tile('🆘','Lost','If separated','lost')}</div>`);
-}
-function renderDN() {
-  app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card"><h2>👨‍👩‍👦 David + Noelle</h2><p>Planning dashboard: bookings, alerts, and logistics.</p></div><div class="section">Reservations</div>${list(state.sections.reservations,r=>`<strong>${esc(r.Item)}</strong><span class="pill">${esc(r.Status)}</span><span class="pill">${esc(r.Urgency)}</span><small>${esc(r.Notes||'')}</small>`)}<div class="section">Smart Alerts</div>${list(state.sections.smartAlerts,r=>`<strong>${esc(r.Trigger)}</strong><p>${esc(r.Message)}</p><span class="pill">${esc(r.Who)}</span>`)}`);
-}
+function renderToday() { const t=today(); app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card dark"><h2>📱 Today</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div>${metrics(t)}</div>${dayCards()}<div class="card red"><b>Bring:</b><br>${esc(t['Bring / Hilda Reminder']||'')}</div>`); }
+function renderHilda() { const t=today(); app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card lav"><h2>👩 Hilda</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div></div><div class="card"><b>Hotel</b><br>${esc(t.Hotel||'')}</div>${dayCards()}<div class="card red"><b>Bring</b><br>${esc(t['Bring / Hilda Reminder']||'')}</div><div class="card dark"><b>Emergency</b><br>Police: 110<br>Ambulance / Fire: 119<br><br>If separated: go to hotel lobby or ask station staff.</div>`, 'hilda'); }
+function renderNick() { const t=today(); app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card blue"><h2>👦 Nick</h2><div class="big">${esc(t.Date_nice||state.core.selectedDateNice)}</div><div class="city">${esc(t.City||'')}</div></div>${dayCards()}<div class="card"><b>Hotel:</b> ${esc(t.Hotel||'')}</div><div class="grid">${tile('🍽','Food','Restaurants','food')}${tile('🛍','Shopping','Wishlist','shopping')}${tile('🇯🇵','Phrases','Useful Japanese','phrases')}${tile('🆘','Lost','If separated','lost')}</div>`); }
+function renderDN() { app.innerHTML = shell(`${controls()}${weatherCard()}<div class="card"><h2>👨‍👩‍👦 David + Noelle</h2><p>Planning dashboard: bookings, alerts, and logistics.</p></div><div class="section">Reservations</div>${list(state.sections.reservations,r=>`<strong>${esc(r.Item)}</strong><span class="pill">${esc(r.Status)}</span><span class="pill">${esc(r.Urgency)}</span><small>${esc(r.Notes||'')}</small>`)}<div class="section">Smart Alerts</div>${list(state.sections.smartAlerts,r=>`<strong>${esc(r.Trigger)}</strong><p>${esc(r.Message)}</p><span class="pill">${esc(r.Who)}</span>`)}`); }
 function renderPhrases() {
   const rows=[...(state.sections.phraseFavorites||[]),...(state.sections.phrases||[])];
   const cats=[...new Set(rows.map(r=>r.Category).filter(Boolean))];
@@ -284,7 +233,7 @@ function render() {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('./sw.js?v=11');
+      const reg = await navigator.serviceWorker.register('./sw.js?v=11.1');
       await reg.update();
     } catch(e) {}
   });

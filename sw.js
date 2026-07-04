@@ -1,5 +1,5 @@
-const CACHE = 'travel-os-v11-shell';
-const ASSETS = ['./manifest.json?v=11','./icons/icon-192.png','./icons/icon-512.png'];
+const CACHE = 'travel-os-v111-shell';
+const ASSETS = ['./manifest.json?v=11.1','./icons/icon-192.png','./icons/icon-512.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).catch(() => {}));
@@ -21,7 +21,8 @@ self.addEventListener('fetch', event => {
     url.pathname.endsWith('/index.html') ||
     url.pathname.endsWith('/app.js') ||
     url.pathname.endsWith('/styles.css') ||
-    url.pathname.endsWith('/sw.js');
+    url.pathname.endsWith('/sw.js') ||
+    url.pathname.endsWith('/api');
 
   if (isFresh) {
     event.respondWith(
