@@ -1,7 +1,7 @@
 const APP_VERSION='v9.1.0';
 const CONFIG={
   // Paste your Apps Script Web App URL here after deployment.
-  API_URL:'',
+  API_URL:'https://script.google.com/macros/s/AKfycbzJW46i_k24_DZ0G7mjrUVYXzuh7UHl5faRMN_0X5UHof_dwQn4r1hO-fjUZa40NCLUXQ/exec',
   CACHE_KEY:'japan-travel-os-v91-cache',
   STALE_MS:1000*60*10
 };
