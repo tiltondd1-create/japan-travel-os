@@ -1,0 +1,22 @@
+{
+  "name": "Japan 2026 Travel OS",
+  "short_name": "Japan 2026",
+  "description": "Family travel app for David, Noelle, Nick, and Hilda.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d0a",
+  "theme_color": "#6F1D1B",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
