@@ -1,8 +1,8 @@
-const APP_VERSION='v9.1.0';
+const APP_VERSION='v10.0.0';
 const CONFIG={
   // Paste your Apps Script Web App URL here after deployment.
   API_URL:'https://script.google.com/macros/s/AKfycbzJW46i_k24_DZ0G7mjrUVYXzuh7UHl5faRMN_0X5UHof_dwQn4r1hO-fjUZa40NCLUXQ/exec',
-  CACHE_KEY:'japan-travel-os-v91-cache',
+  CACHE_KEY:'japan-travel-os-v10-cache',
   STALE_MS:1000*60*10
 };
 
@@ -72,15 +72,25 @@ function saveCache(){
 }
 
 async function init(){
+  const params = new URLSearchParams(location.search);
+  if (params.has('reset') || params.has('clearCache')) {
+    localStorage.removeItem(CONFIG.CACHE_KEY);
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      } catch(e) {}
+    }
+  }
+
   const cacheTime=loadCache();
   if(state.core) render();
 
-  if(!CONFIG.API_URL){
-    if(!state.core) app.innerHTML=`<div class="app"><div class="card red"><h2>Setup needed</h2><p>Open app.js and paste your Apps Script web app URL into CONFIG.API_URL.</p></div></div>`;
+  if(!CONFIG.API_URL || CONFIG.API_URL.trim()===''){
+    app.innerHTML=`<div class="app"><div class="card red"><h2>Setup needed</h2><p>Open app.js and paste your Apps Script web app URL into CONFIG.API_URL.</p><p><small>Version: ${APP_VERSION}</small></p></div></div>`;
     return;
   }
 
-  // Cache-first: render instantly from localStorage, then refresh in background.
   const shouldRefresh=!cacheTime || Date.now()-cacheTime>CONFIG.STALE_MS;
   if(!state.core || shouldRefresh) {
     try{
@@ -98,7 +108,7 @@ async function init(){
     }catch(e){
       state.loading=false;
       if(state.core){state.offline=true;render();}
-      else app.innerHTML=`<div class="app"><div class="card red"><h2>Could not load app</h2><p>${esc(e.message)}</p></div></div>`;
+      else app.innerHTML=`<div class="app"><div class="card red"><h2>Could not load app</h2><p>${esc(e.message)}</p><p><small>Version: ${APP_VERSION}</small></p><p><small>API URL is set: ${CONFIG.API_URL ? 'yes' : 'no'}</small></p><p><small>Try opening with <code>?reset=1</code> after deploying.</small></p></div></div>`;
     }
   } else {
     refreshWeather();
@@ -228,5 +238,12 @@ function renderUseful(){app.innerHTML=shell(`<div class="card"><h2>🧰 Useful G
 function renderTimeline(){app.innerHTML=shell(`<div class="card"><h2>⏳ Countdown + Reservation Timeline</h2></div>${list(state.sections.countdown,r=>`<strong>${esc(r.Event)}</strong><span class="pill">${esc(r['Days Remaining'])}</span><small>${esc(r.Notes||'')}</small>`,'Countdown loading...')}<div class="section">Reservations</div>${list(state.sections.resTimeline,r=>`<strong>${esc(r.Month)} · ${esc(r.Task)}</strong><span class="pill">${esc(r.Status)}</span><small>${esc(r.Notes)}</small>`,'Timeline loading...')}`);}
 function renderShopping(){app.innerHTML=shell(`<div class="card"><h2>🛍 Shopping</h2></div>${list(state.sections.shopping,r=>`<strong>${esc(r['Store / Item'])}</strong><span class="pill">${esc(r.Who)}</span><span class="pill">${esc(r.Priority)}</span><small>${esc(r.Notes||'')}</small>`,'Shopping loading...')}`);}
 function render(){if(!state.core){app.innerHTML=splash('Loading...');return}const v=state.view;if(v==='home')renderHome();else if(v==='today')renderToday();else if(v==='hilda')renderHilda();else if(v==='nick')renderNick();else if(v==='dn')renderDN();else if(v==='phrases')renderPhrases();else if(v==='sos')renderSOS();else if(v==='lost')renderLost();else if(v==='food')renderFood();else if(v==='maps')renderMaps();else if(v==='rain')renderRain();else if(v==='academy')renderAcademy();else if(v==='useful')renderUseful();else if(v==='timeline')renderTimeline();else if(v==='shopping')renderShopping();else renderHome();}
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+if('serviceWorker' in navigator){
+  window.addEventListener('load', async ()=>{
+    try {
+      const reg = await navigator.serviceWorker.register('./sw.js?v=10');
+      await reg.update();
+    } catch(e) {}
+  });
+}
 init();
