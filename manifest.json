@@ -1,8 +1,8 @@
 {
-  "name": "Japan 2026 Travel OS",
-  "short_name": "Japan 2026",
-  "description": "Family travel app for David, Noelle, Nick, and Hilda.",
-  "start_url": "./index.html?app=1",
+  "name": "Travel OS \u2014 Japan 2026",
+  "short_name": "Travel OS",
+  "description": "Travel OS 1.0 RC4 \u2014 smart, offline-first Japan 2026 family travel companion.",
+  "start_url": "./index.html?app=1&release=1.0-rc4",
   "scope": "./",
   "display": "standalone",
   "background_color": "#08100b",

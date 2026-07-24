@@ -1,0 +1,13 @@
+Title,Body,Labels
+Complete hotel data,"Add hotel name, address, phone, Japanese address, nearest station, map link.","content,critical"
+Complete restaurants,"Add area, cuisine, must order, price, reservation need, hours, map link.","content,food"
+Complete maps,"Add Google Maps links for hotels, restaurants, attractions, stations, bathrooms, meeting points.","content,maps"
+Test Money Hub,"Test /fx, converter, quick buttons, cash helper, offline fallback.","money,qa"
+Test Apple Wallet Suica,Verify Suica instructions are clear for each traveler.,"suica,qa"
+Offline test,Verify essentials work in Airplane Mode.,"offline,critical,qa"
+Hilda usability test,"Have Hilda find Today, Hotel, Bathroom, Lost, SOS.","hilda,qa"
+Nick usability test,"Have Nick find Food, Shopping, Transit, Phrases.","nick,qa"
+Search QA,"Search ramen, bathroom, suica, hotel, Narita, rain, emergency.","search,qa"
+Emergency content review,"Review SOS, Lost Mode, medical/help cards, hotel taxi card.","safety,critical"
+PWA install test,Install on each iPhone and verify standalone launch.,"pwa,qa"
+Content freeze,Freeze features before trip; only content and bug fixes after this point.,release
