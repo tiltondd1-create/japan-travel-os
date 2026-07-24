@@ -1,0 +1,10 @@
+TRAVEL OS RC5 — DEPLOYMENT NOTES
+
+1. Import Travel_OS_1_0_RC5_Food_Explorer_Master_Workbook.xlsx into Google Drive.
+2. Open it with Google Sheets and save as a native Google Sheet.
+3. Keep the existing Apps Script backend connected to this new sheet.
+4. Confirm the Apps Script REST endpoint returns the expanded `restaurants` section.
+5. Deploy this folder to GitHub / Cloudflare Pages.
+6. Open the app once with `?reset=1` to clear the RC4 cache.
+7. Test Food Explorer search, city filters, meal filters, favorites, Tabelog links, and reservation statuses.
+8. Reconfirm restaurant hours, Michelin status, Tabelog information, and dietary accommodations before booking.

@@ -1,0 +1,8 @@
+TRAVEL OS RC6 SETUP
+
+1. Import the RC6 workbook into Google Drive and convert it to a native Google Sheet.
+2. Keep the existing Apps Script backend connected to the RC6 sheet.
+3. Deploy the RC6 app folder to GitHub / Cloudflare Pages.
+4. Open once with ?reset=1 to clear the old service-worker cache.
+5. Test Food Explorer, Travel Companion, Reservation Assistant, Daily Timeline, Map Explorer, Live Transit, Packing, Budget, Daily Brief, and Memory Book.
+6. Live weather/transit links require an internet connection.
